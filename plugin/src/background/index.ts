@@ -154,49 +154,39 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+// 监听设置变更，动态调整自动重连任务
 chrome.storage.onChanged.addListener((changes: { [key: string]: any }) => {
   console.log("[LessProxy] 检测到设置变更:", changes);
 
   // 确保在非智能代理模式下关闭自动重连任务
-  chrome.storage.sync.get(["proxyMode"], ({ proxyMode }) => {
-    if (proxyMode === ProxyMode.SMART) {
-      return;
-    }
+  chrome.storage.sync.get(
+    ["proxyMode", "autoReconnect", "interval"],
+    ({ proxyMode, autoReconnect, interval }) => {
+      // 如果开启了自动重连，但当前不是智能代理模式，则关闭任务
+      if (proxyMode === ProxyMode.DIRECT) {
+        chrome.alarms.clear("autoReloadProxy");
+        console.log(
+          "[LessProxy] 自动重连仅在智能代理模式下启用，当前模式无法启用自动重连任务。"
+        );
+        console.log("[LessProxy] 已关闭自动重连任务");
+        return;
+      }
 
-    console.log(
-      "[LessProxy] 自动重连仅在智能代理模式下启用，当前模式无法启用自动重连任务。"
-    );
-    chrome.alarms.clear("autoReloadProxy");
-    console.log("[LessProxy] 已关闭自动重连任务");
-  });
+      if (!autoReconnect) {
+        chrome.alarms.clear("autoReloadProxy");
+        console.log("[LessProxy] 已关闭自动重连任务");
+        return;
+      }
 
-  // 自动重连逻辑
-  if (changes.autoReconnect) {
-    if (changes.autoReconnect.newValue) {
-      chrome.storage.sync.get(
-        ["interval", "proxyMode"],
-        ({ interval, proxyMode }) => {
-          if (proxyMode !== ProxyMode.SMART) {
-            console.log(
-              "[LessProxy] 自动重连仅在智能代理模式下启用，当前模式无法启用自动重连任务。"
-            );
-            return;
-          }
-          chrome.alarms.clear("autoReloadProxy");
-          chrome.alarms.create("autoReloadProxy", {
-            periodInMinutes: interval || 5,
-          });
-          console.log(
-            `🔁 已启用自动检测代理连接，每 ${formatInterval(
-              interval
-            )}检测一次。`
-          );
-          console.log("[LessProxy] 已开启自动重连任务");
-        }
-      );
-    } else {
+      // 如果是智能代理模式，且开启了自动重连，则根据最新的 interval 设置重置任务
       chrome.alarms.clear("autoReloadProxy");
-      console.log("[LessProxy] 已关闭自动重连任务");
+      chrome.alarms.create("autoReloadProxy", {
+        periodInMinutes: interval || 5,
+      });
+      console.log(
+        `🔁 已启用自动检测代理连接，每 ${formatInterval(interval)}检测一次。`
+      );
+      console.log("[LessProxy] 已开启自动重连任务");
     }
-  }
+  );
 });
