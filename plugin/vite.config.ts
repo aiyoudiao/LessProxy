@@ -5,6 +5,7 @@ import { defineConfig } from "vite";
 import zip from "vite-plugin-zip-pack";
 import manifest from "./manifest.config.js";
 import { name, version } from "./package.json";
+import dayjs from "dayjs";
 
 export default defineConfig(({ mode }) => ({
   resolve: {
@@ -17,7 +18,9 @@ export default defineConfig(({ mode }) => ({
     crx({ manifest }),
     zip({
       outDir: "release",
-      outFileName: `crx-${name}-${version}.zip`,
+      outFileName: `${name}@${version}__${dayjs().format(
+        "YYYY-MM-DD_HH-mm-ss"
+      )}.zip`,
     }),
   ],
   server: {
